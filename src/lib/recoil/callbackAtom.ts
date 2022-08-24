@@ -44,7 +44,7 @@ export const callbackAtom = <Obj extends CallbackAtomInput>(
             throw new Error(`callbackAtom: ${key} is not defined`);
           }
 
-          func(cb)(args);
+          func(cb)(...args);
         });
 
         callbacks[key] = callback;
