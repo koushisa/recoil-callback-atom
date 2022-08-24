@@ -38,14 +38,13 @@ export const callbackAtom = <Obj extends CallbackAtomInput>(
 
       keys.forEach((key) => {
         const callback = getCallback((cb) => (...args: ReadonlyArray<any>) => {
-          const updaterFunc = input[key];
+          const func = input[key];
 
-          if (updaterFunc === undefined) {
+          if (func === undefined) {
             throw new Error(`callbackAtom: ${key} is not defined`);
           }
 
-          // call updater
-          updaterFunc?.(cb)(args);
+          func(cb)(args);
         });
 
         callbacks[key] = callback;
