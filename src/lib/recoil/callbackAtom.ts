@@ -2,7 +2,8 @@
 import {
   CallbackInterface,
   RecoilValueReadOnly,
-  selector,
+  selectorFamily,
+  SerializableParam,
   UnwrapRecoilValue,
   useRecoilValue
 } from "recoil";
@@ -15,30 +16,44 @@ export type CallbackAtomInput<Func = Callback> = Record<
   (cb: CallbackInterface) => Func
 >;
 
-type ResultSelector<Obj extends CallbackAtomInput> = RecoilValueReadOnly<
+export type CallbackAtomSelector<
+  Obj extends CallbackAtomInput
+> = RecoilValueReadOnly<
   {
     [P in keyof Obj]: ReturnType<Obj[P]>;
   }
 >;
 
-export type CallbackAtomReturn<Obj extends CallbackAtomInput> = [
-  ResultSelector<Obj>,
-  () => UnwrapRecoilValue<ResultSelector<Obj>>
+export type CallbackAtomResult<Obj extends CallbackAtomInput> = [
+  CallbackAtomSelector<Obj>,
+  () => UnwrapRecoilValue<CallbackAtomSelector<Obj>>
 ];
 
-export const callbackAtom = <Obj extends CallbackAtomInput>(
-  input: Obj
-): CallbackAtomReturn<Obj> => {
-  const keys = Object.keys(input);
+export type CallbackAtomFamilyResult<
+  Obj extends CallbackAtomInput,
+  P extends SerializableParam
+> = [
+  (param: P) => CallbackAtomSelector<Obj>,
+  (param: P) => UnwrapRecoilValue<CallbackAtomSelector<Obj>>
+];
 
-  const result = selector({
+export const callbackAtomFamily = <
+  Obj extends CallbackAtomInput,
+  P extends SerializableParam
+>(
+  inputs: (param: P) => Obj
+): CallbackAtomFamilyResult<Obj, P> => {
+  const result = selectorFamily({
     key: nanoid(),
-    get({ getCallback }) {
+    get: (param: P) => ({ getCallback }) => {
+      const callbackObj = inputs(param);
+      const keys = Object.keys(callbackObj);
+
       const callbacks: any = {};
 
       keys.forEach((key) => {
         const callback = getCallback((cb) => (...args: ReadonlyArray<any>) => {
-          const func = input[key];
+          const func = callbackObj[key];
 
           if (func === undefined) {
             throw new Error(`callbackAtom: ${key} is not defined`);
@@ -54,7 +69,23 @@ export const callbackAtom = <Obj extends CallbackAtomInput>(
     }
   });
 
-  const hooks = () => useRecoilValue(result);
+  const hooks = (param: P) => useRecoilValue(result(param));
 
   return [result, hooks];
+};
+
+export const callbackAtom = <Obj extends CallbackAtomInput>(
+  input: Obj
+): CallbackAtomResult<Obj> => {
+  const key = nanoid();
+
+  const [baseMutation, useBaseMutation] = callbackAtomFamily(() => {
+    return input;
+  });
+
+  const mutation = baseMutation(key);
+
+  const useMutation = () => useBaseMutation(key);
+
+  return [mutation, useMutation];
 };
