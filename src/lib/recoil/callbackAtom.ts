@@ -59,7 +59,7 @@ export const callbackAtomFamily = <
             throw new Error(`callbackAtom: ${key} is not defined`);
           }
 
-          func(cb)(...args);
+          return func(cb)(...args);
         });
 
         callbacks[key] = callback;
